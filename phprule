@@ -1,0 +1,394 @@
+一、框架与版本
+1、框架选型
+公司范围内选用通用的开发框架可以减少团队间的沟通成本。在选用框架时有两点建议：
+
+1、尽量不要自研，除非公司愿意长期投入人力维护，否则人员流动带来的维护成本巨大。
+
+2、以下开源框架供参考：
+
+lumen 5.8.12     参考手册：https://learnku.com/docs/lumen/5.7
+
+Yii2.0  参考手册：https://www.yiiframework.com/doc/guide/2.0/zh-cn
+
+2、php版本
+php版本：>= 7.0.0 ， 建议 >= 7.1.0
+
+3、公共库的维护
+3.1 自研库
+根据composer规范， 自研库编写为composer包，位于vendor目录，统一放入【wondershare/组件名】目录，并与第三方库一起通过统一的git仓库维护。
+
+开发规范需遵循composer标准以及psr4类的命名标准：
+
+<NamespaceName>(<SubNamespaceNames>)*<ClassName>
+
+完全限定类名必须有一个顶级命名空间（Vendor Name）；
+完全限定类名可以有多个子命名空间；
+完全限定类名应该有一个终止类名；
+下划线在完全限定类名中是没有特殊含义的；
+字母在完全限定类名中可以是任何大小写的组合；
+所有类名必须以大小写敏感的方式引用；
+
+【强烈建议】用命名空间调用类方法，拒绝通过model()、logic()等公用函数调用。因为在IED里极其不友好。
+
+
+
+创建步骤如下：
+
+3.1.1、cd  vendor/wondershare/default-package
+3.1.2、初始化:  composer init 。
+最终生成的composer.json，如下：
+
+{
+    "name":"wondershare/default-package",//此处需要和 wondershare/default-package目录对应
+    "description":"composer包实例",
+    "authors":[
+        {
+            "name":"dc",
+            "email":"dc@wondershare.cn"
+        }
+    ],
+    "autoload": {
+    "psr-4": {
+      "Wondershare\\DefaultPackage\\": "src" //指定导出的namespace以及对应的库文件所在路径"src"。此处的src即为下一步中创建的src目录
+    }
+   },
+    "require":{
+    }
+}
+
+
+3.1.3、编写包的实现代码。
+1、mkdir src  &&  cd  src 
+
+2、编写库文件。
+
+<?php
+/**
+ * 示例类
+ * @author dc
+ */
+ 
+namespace Wondershare\DefaultPackage;
+ 
+class DefaultPackage
+{
+    /**
+     * 格式化字节
+     * @param int $num       数字
+     * @param int $precision 精准度
+     * @return string
+     */
+    public static function ToDO($num = 0, $precision = 1)
+    {
+        return true;
+    }
+}
+3.2 第三方库
+位于vendor目录，并与自研库一起通过统一的git仓库维护。
+
+3.3 引入方法
+在项目中通过composer引入，修改composer.json，形如：
+
+"require": {
+        "wondershare/default-packege": "^1.0"  //与前面composer.json中name对应
+ }
+composer  require  wondershare/default-packege
+提交 composer.lock
+二、编码规范
+1、项目的目录结构
+以下以lumen框架为例，展示了项目代码的组织结构：
+
+app
+Listeners //事件处理listeners
+Events  //事件定义
+Rpc
+Contracts  //rpc接口定义
+Service //rpc controller层
+Http
+Controllers   //controller 层代码
+Middleware  //切面层代码
+Contracts  //http接口定义
+Wondershare
+Logic    // 业务层或服务层代码
+Model  // 领域层代码
+Config // 业务相关的配置
+Exceptions //异常处理
+Helper //助手类  所有公共方法，包括第三方的sdk都在此包中
+Providers  //服务注册
+config  //配置文件
+bootstrap  //启动文件
+public //主入口
+routes //路由配置
+vendor //第三方、自研库
+要点：
+
+1、项目外部库统一通过composer引入。
+
+2、统一的配置文件存储目录。
+
+3、业务代码分层：如MVC等等。
+
+4、项目内公共方法、异常处理等通过统一的包进行管理。
+
+2、分层设计
+2.1 业务代码分层
+编码实现采用领域驱动（DDD）设计中的充血模型。即尽量将服务层（Logic）做薄，领域模型（Moidel）做厚，且基础设施中的DAO（ORM）不应暴露到应用层（Controller）和服务层（Logic）中，而是通过注入的方式存在于Model中。
+
+领域驱动中的分层设计与项目代码分层对应如下：
+
+
+
+业务代码类图：
+
+
+
+2.2 代码示例
+Controller层：
+
+namespace App\Http\Controllers\v1;
+use App\Wondershare\Logic\CartLogic;
+use Illuminate\Support\Facades\Validator;
+class CartController extends Controller{
+    $verification = Validator::make($request->all(), [
+            'email' => 'required',
+        ]);
+ 
+    if ($verification->fails()) {
+        return [
+                'code' => 290002,
+                'msg'  => 'params error',
+                'data' => $verification->errors(),
+        ];
+    }
+    $service = new CartLogic();
+    $data = $service->ToDo();
+    return [
+                'code' => 0,
+                'msg'  => '',
+                'data' => $data,
+        ];
+}
+Service/Logic层
+
+namespace App\Wondershare\Logic;
+use App\Wondershare\Model\CartModel;
+use App\Wondershare\Model\OrderModel;
+class CartLogic {
+    $cart = new CartModel();
+    $order = new OrderModel();
+    $cartResult = $cart->ToDO();
+    $orderResult = $order->ToDO();
+    return [orderResult,cartResult];
+}
+Model层代码
+
+namespace App\Wondershare\Model;
+use App\Wondershare\CModel;
+class CartModel extends CModel {
+    public static function addCartOrder($data) {
+        //todo  insert db
+    }
+}
+3、命名规范及其他
+3.1 类的命名
+类名采用大驼峰命名法，如：DefaultClass
+
+3.2 方法的命名
+私有方法：建议采用下划线 + 方法名。如 _todo()
+
+公有方法：建议采用驼峰式，如：toDo
+
+3.3 变量的命名
+所有变量采用驼峰，如：orderNo。建议采用小驼峰
+
+3.4 常量的命名
+所有常量必须全部使用大写加下划线的形式，如：ORDER_STATUS_PAY
+
+3.5 注释
+1. 有必要注释就写注释，如果写就务必写清楚，模棱两可的注释宁可不写。
+
+错误的示范：
+
+//这里将订单状态更新。
+
+$this→updateOrderStatus($order);
+
+正确的示范：
+
+//这里将订单状态更新为已支付状态。
+
+$this→updateOrderStatus($order);
+
+2. 多行注释使用/* */方式。
+
+3. 具体到某一个语句的注释，建议将注释单独作为一行：
+
+/* 生成配置文件、数据文件。*/
+$this->setConfig();  
+ // 清除缓存文件 
+$this->clearCache();       
+// 生成数据文件 
+$this->createDataFiles();
+4.文件注释
+
+/** 
+*文件名简单介绍
+* 
+*文件功能。 
+* @author      alvin 作者
+* @version     1.0 版本号
+*/ 
+5.类注释
+
+/** 
+* 类的介绍 
+* 
+* 类的详细介绍（可选。）。 
+* @author      frank 作者 
+* @version     1.0 版本号
+*/ 
+6.函数注释
+
+/**  
+* 函数的含义说明 
+* 
+* @access public 
+* @param mixed $arg1 参数一的说明 
+* @param mixed $arg2 参数二的说明 
+* @param mixed $mixed 这是一个混合类型 
+* @return array 返回类型
+*/  
+3.6 继承与实现
+建议尽量不要超过三层的继承一次不要实现两个以上的接口，否则应该考虑类的职责划分是否存在问题。
+
+3.7 函数的实现
+参数：避免传引用。
+
+返回值：建议有明确的返回值。不要将函数退化成了过程。
+
+3.8 文件规范
+1、文件编码必须是无BOM的utf-8编码【强制】。
+
+2、一个文件中要么全部是声明，要么全部是实现【建议】。
+
+以下是错误的示范：
+
+ini_set('error_reporting', E_ALL);
+ 
+// 「副作用」：引入文件
+include "file.php";
+ 
+// 「副作用」：生成输出
+echo "<html>\n";
+ 
+// 声明函数
+function foo()
+{
+    // function body
+}
+3、代码必须以长标签<?php 开头。
+
+4、一个类一个文件，文件名与类名保持一致【强制】。
+
+5、每行代码尽量控制长度。【建议】
+
+6、统一采用四个空格符缩进。【建议】
+
+3.9 View层编码规范
+以下两种方式可选：
+
+1、采用php自带的模板语法编写。
+
+<?php foreach($result as $v) : ?>
+    <div><?php echo $v['name']?> </div>
+<?php endforeach; ?>
+2、采用开源的模板引擎，如Smarty。
+
+<foreach from="custid" item="customer">
+    id: {$customer.id}<br />
+    name: {$customer.name}<br />
+</foreach>
+
+3.10  大括号
+1、类的开始花括号“{”必须 写在类声明后自成一行，结束花括号“}”也 【必须】写在类主体后自成一行。
+
+class CartPaymentInfo extends Model
+{
+        //todo
+}
+
+
+2、方法的开始花括号“{”必须 写在函数声明后自成一行，结束花括号“}”也 【必须】写在函数主体后自成一行。
+
+public function SetAppid($value)
+{
+        //todo
+}
+3.10  数组规范
+数组如果采用字符串作为键名，则【建议】请采用小写加下划线的命名规范。
+
+$this->values['mch_id'] = $value;
+
+
+三、项目搭建
+1、加载项目所需库
+由于所有第三方包与自研库都通过本地git仓库管理，以上第二步拉取基础库的操作其实已经将整个vendor包都拉取到了当前项目。所以，本项目需要自动加载的库必须通过composer.json中的autoload给出，以下给出了完整的composer.json，项目需要加载的库仅通过autoload中的psr-4与files字段配置。
+
+{
+    "name": "wondershare/framework",
+    "description": "wondershare framework.",
+    "keywords": ["framework", "wondershare"],
+    "license": "MIT",
+    "type": "project",
+    "repositories": {
+        "packagist": {
+            "type": "git",
+            "url": "git@git.wondershare.cn:CPStudio/chaos_php_libs.git"
+        }
+    },
+    "autoload": {
+        "classmap": [
+            "database/seeds",
+            "database/factories"
+        ],
+        "psr-4": {
+            "App\\": "app/",
+            "Wondershare\\Chaos\\": "vendor/wondershare/chaos",
+            "Laravel\\Lumen\\": "vendor/laravel/lumen-framework/src",
+            "Illuminate\\": "vendor/illuminate",//可以只写到根目录
+            "Illuminate\\Cache\\": "vendor/illuminate/cache",
+            "Psr\\SimpleCache\\": "vendor/psr/simple-cache/src",
+            "Psr\\Log\\": "vendor/psr/log/Psr/Log",
+            "Psr\\Container\\": "vendor/psr/container/src",
+            "Symfony\\Component\\Console\\": "vendor/symfony/console",
+            "Symfony\\Component\\Debug\\": "vendor/symfony/debug",
+            "Symfony\\Component\\ErrorHandler\\": "vendor/symfony/error-handler",
+            "Symfony\\Component\\Translation\\": "vendor/symfony/translation",
+            "Symfony\\Contracts\\Translation\\": "vendor/symfony/translation-contracts",
+            "Dotenv\\": "vendor/vlucas/phpdotenv/src",
+            "PhpOption\\": "vendor/phpoption/phpoption/src/PhpOption/",
+            "Monolog\\": "vendor/monolog/monolog/src/Monolog",
+            "Symfony\\Component\\HttpKernel\\": "vendor/symfony/http-kernel",
+            "Symfony\\Component\\HttpFoundation\\": "vendor/symfony/http-foundation",
+            "Carbon\\": "vendor/nesbot/carbon/src/Carbon/",
+            "Hprose\\": "vendor/hprose/hprose/src/Hprose"
+        },
+        "files": [
+            "vendor/laravel/lumen-framework/src/helpers.php",
+            "vendor/illuminate/support/helpers.php",
+            "vendor/hprose/hprose/src/Hprose/functions.php",
+            "vendor/hprose/hprose/src/Hprose/Future/functions.php"
+        ]
+    }
+}
+例如，新下载了一个第三方vendor包，请先上传到chaos_php_libs仓库中，然后在对应的vendor包中打开composer.json文件，复制其中autoload部分的psr-4与files字段，将其中的路径转为以vendor开头的全路径并填写到项目的composer.json的autoload:psr-4与files字段中。
+
+
+
+最后一步，生成composer自动加载文件：（在项目根目录下执行以下命令）
+
+composer install -vvv  -o
+2、日志打印
+为便于公司日志系统统一处理分析，以下两种格式可供参考：
+1、竖线连接。如:  UA|25.02|PayPal|2020-06-26 15:30:30|Payment|22512541114411251233355112
+2、json格式。如：{"oder_no":"20202602554112441","Platform":"Platform","ctime":"2020-06-26 15:30:30"}
